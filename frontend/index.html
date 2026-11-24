@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChangeScope MCP - Code Change Impact</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="badge-track">TRACK 1: MAKE MCP MATTER - LESS MAGIC, MORE UTILITY</span>
+      <h1>ChangeScope <span>MCP</span></h1>
+    </div>
+    <button id="btn-export-report" class="btn btn-secondary" disabled>Export Markdown Report</button>
+  </header>
+
+  <div class="advisory-banner">
+    <strong>Advisory Boundary:</strong> Affected code does not mean broken code. Static AST and Git diff results guide regression testing; test execution requires explicit human approval.
+  </div>
+
+  <main class="layout">
+    <section class="panel controls-panel">
+      <h2>1. Revision Comparison Setup</h2>
+      <label for="repo-select">Approved Local Repository</label>
+      <select id="repo-select"></select>
+
+      <div class="commit-grid">
+        <div>
+          <label for="base-commit">Base Commit</label>
+          <input id="base-commit" type="text" readonly>
+        </div>
+        <div>
+          <label for="target-commit">Target Commit</label>
+          <input id="target-commit" type="text" readonly>
+        </div>
+      </div>
+
+      <button id="btn-run-analysis" class="btn btn-primary">Run Deterministic Impact Analysis</button>
+      <hr>
+
+      <h2>2. Detected Code Changes</h2>
+      <div id="change-summary" class="empty-state">Run analysis to inspect modified and deleted functions.</div>
+      <hr>
+
+      <h2>3. Live MCP Tool Inspector</h2>
+      <p class="muted">Verify how an AI agent queries ChangeScope over MCP instead of guessing.</p>
+      <div class="mcp-controls">
+        <select id="mcp-tool-select">
+          <option value="analyze_revision_impact">tool: analyze_revision_impact</option>
+          <option value="get_prioritized_tests">tool: get_prioritized_tests</option>
+          <option value="list_approved_repositories">tool: list_approved_repositories</option>
+        </select>
+        <button id="btn-invoke-mcp" class="btn btn-secondary">Invoke MCP Tool</button>
+      </div>
+      <pre id="mcp-output" class="code-box">{ "status": "Ready - click Invoke MCP Tool" }</pre>
+    </section>
+
+    <section class="workspace">
+      <div class="panel graph-panel">
+        <div class="panel-header">
+          <h2>4. Interactive Reverse-Dependency Impact Explorer</h2>
+          <div class="legend">
+            <span class="pill pill-changed">Changed</span>
+            <span class="pill pill-affected">Potentially Affected</span>
+            <span class="pill pill-test">Regression Test</span>
+            <span class="pill pill-unaffected">Unaffected</span>
+          </div>
+        </div>
+        <div class="graph-container">
+          <svg id="impact-svg" viewBox="0 0 760 280" role="img" aria-label="Dependency Impact Graph"></svg>
+          <aside id="node-inspector" class="node-inspector">
+            <h3>Node Inspector</h3>
+            <p class="muted">Click any node to inspect its status and evidence chain.</p>
+          </aside>
+        </div>
+      </div>
+
+      <div class="panel tests-panel">
+        <div class="panel-header">
+          <h2>5. Prioritized Regression Tests and Human Execution Gate</h2>
+          <button id="btn-approve-tests" class="btn btn-danger" disabled>Approve and Execute Recommended Tests</button>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr><th>Rank</th><th>Test Identifier</th><th>Score</th><th>Status</th><th>Deterministic Evidence Path</th></tr>
+          </thead>
+          <tbody id="tests-tbody">
+            <tr><td colspan="5" class="muted">No analysis run yet.</td></tr>
+          </tbody>
+        </table>
+        <div id="test-run-result" class="test-run-box hidden"></div>
+      </div>
+
+      <div class="panel limits-panel">
+        <h3>Transparent System Limitations</h3>
+        <ul id="limitations-list">
+          <li>Python static AST resolves direct calls and imports; dynamic dispatch is flagged unresolved.</li>
+          <li>Heuristic scores rank regression priority deterministically and do not represent calibrated probabilities.</li>
+          <li>Isolated worker enforces a 15-second timeout and blocks arbitrary shell commands.</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

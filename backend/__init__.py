@@ -1,0 +1,1 @@
+"""ChangeScope MCP backend package."""
