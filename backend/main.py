@@ -3,7 +3,7 @@ import sqlite3
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -57,13 +57,29 @@ _init_db()
 
 class AnalysisCreateRequest(BaseModel):
     repo_id: str = "sample-billing-repo"
+    repo_path: Optional[str] = None
     base_commit: str
     target_commit: str
+    budget_seconds: float = 0.25
 
 
 class TestRunRequest(BaseModel):
     approved_by_user: bool
-    test_ids: List[str]
+    user_authorized: bool = False
+    test_ids: List[str] = []
+    test_identifiers: List[str] = []
+    repo_path: Optional[str] = None
+
+
+@app.get("/api/defaults")
+def get_defaults() -> Dict[str, Any]:
+    repo = APPROVED_REPOS["sample-billing-repo"]
+    return {
+        "demo_repo_path": repo["repository_path"],
+        "base_commit": repo["default_base"],
+        "target_commit": repo["default_target"],
+        "budget_seconds": 0.25,
+    }
 
 
 class McpInvokeRequest(BaseModel):
@@ -98,10 +114,17 @@ def list_analyses() -> List[Dict[str, Any]]:
 @app.post("/api/analyses")
 def create_analysis(req: AnalysisCreateRequest) -> Dict[str, Any]:
     repo = APPROVED_REPOS.get(req.repo_id)
-    if not repo:
+    repository_path = req.repo_path
+    if repository_path:
+        approved_paths = {item["repository_path"] for item in APPROVED_REPOS.values()}
+        if str(Path(repository_path).resolve()) not in approved_paths:
+            raise HTTPException(status_code=400, detail="Repository is not in the approved allowlist.")
+    elif repo:
+        repository_path = repo["repository_path"]
+    else:
         raise HTTPException(status_code=400, detail="Repository is not in the approved allowlist.")
     try:
-        result = run_impact_analysis(repo["repository_path"], req.base_commit, req.target_commit)
+        result = run_impact_analysis(repository_path, req.base_commit, req.target_commit)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -149,6 +172,56 @@ def run_tests_for_analysis(analysis_id: str, req: TestRunRequest) -> Dict[str, A
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"analysis_id": analysis_id, **outcome}
+
+
+@app.post("/api/test-runs")
+def run_authorized_tests(req: TestRunRequest) -> Dict[str, Any]:
+    if not req.approved_by_user and not req.user_authorized:
+        raise HTTPException(
+            status_code=403,
+            detail="Human-in-the-loop gate blocked execution: explicit user authorization required.",
+        )
+
+    selected = req.test_identifiers or req.test_ids
+    repository_path = req.repo_path
+    if not repository_path:
+        repository_path = APPROVED_REPOS["sample-billing-repo"]["repository_path"]
+
+    approved_paths = {item["repository_path"] for item in APPROVED_REPOS.values()}
+    if str(Path(repository_path).resolve()) not in approved_paths:
+        raise HTTPException(status_code=400, detail="Repository is not in the approved allowlist.")
+
+    outcomes = []
+    raw_sections = []
+    for test_id in selected:
+        try:
+            result = execute_approved_tests(repository_path, [test_id])
+            observed = "PASSED" if result["status"] == "passed" else "FAILED"
+            summary = (
+                result["stdout"].strip().splitlines()[-1]
+                if result["stdout"].strip()
+                else result["stderr"].strip().splitlines()[-1]
+                if result["stderr"].strip()
+                else observed
+            )
+            outcomes.append({
+                "test_id": test_id,
+                "observed_outcome": observed,
+                "summary": summary,
+            })
+            raw_sections.append(f"$ pytest -v --tb=short {test_id}\n{result['stdout']}{result['stderr']}")
+        except Exception as exc:
+            outcomes.append({
+                "test_id": test_id,
+                "observed_outcome": "FAILED",
+                "summary": str(exc),
+            })
+            raw_sections.append(f"$ pytest -v --tb=short {test_id}\n{exc}")
+
+    return {
+        "outcomes": outcomes,
+        "raw_output": "\n\n".join(raw_sections),
+    }
 
 
 @app.get("/api/analyses/{analysis_id}/report", response_class=PlainTextResponse)

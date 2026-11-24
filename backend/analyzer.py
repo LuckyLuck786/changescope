@@ -403,17 +403,60 @@ def run_impact_analysis(repo_path_str: str, base_commit: str, target_commit: str
     ranked_tests.sort(key=lambda test: (-test["score"], test["test_id"]))
     for rank, test in enumerate(ranked_tests, start=1):
         test["rank"] = rank
+        test["estimated_seconds"] = round(0.025 + (0.055 * (1.0 - test["score"])), 3)
+        test["predicted_risk"] = "HIGH" if test["score"] >= 0.70 else "MEDIUM" if test["score"] >= 0.30 else "LOW"
+
+    for node in nodes_payload:
+        node["role"] = {
+            "changed": "CHANGED",
+            "affected": "AFFECTED",
+            "test": "TEST",
+            "unaffected": "UNAFFECTED",
+        }[node["status"]]
+        node["hop_distance"] = shortest_distances.get(node["id"])
+
+    for edge in edges_payload:
+        edge["edgeType"] = "CALLS"
+        edge["label"] = "calls"
+
+    diff_result = subprocess.run(
+        ["git", "diff", "-U3", base_commit, target_commit],
+        cwd=repo_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    blind_spots: List[Dict[str, str]] = []
+    for unresolved in unresolved_calls:
+        blind_spots.append({
+            "type": "DYNAMIC_DISPATCH",
+            "location": unresolved["caller"],
+            "detail": f"Call '{unresolved['call']}' could not be resolved statically.",
+        })
+    isolated_count = sum(1 for test in ranked_tests if test["coverage_status"] == "no_overlap")
+    if isolated_count:
+        blind_spots.append({
+            "type": "UNCOVERED_FUNCTIONS",
+            "location": "Regression suite",
+            "detail": f"{isolated_count} test(s) have no static overlap with changed code.",
+        })
 
     return {
         "repository_path": str(repo_path),
         "base_commit": base_commit,
         "target_commit": target_commit,
+        "base_hash": base_commit[:10],
+        "target_hash": target_commit[:10],
         "method_version": "heuristic-ast-v1.0",
         "files_changed": diff_info["files"],
+        "changed_files": diff_info["files"],
         "changed_functions": changed_functions,
         "unresolved_calls": unresolved_calls,
         "graph": {"nodes": nodes_payload, "edges": edges_payload},
         "ranked_tests": ranked_tests,
+        "diff_preview": diff_result.stdout,
+        "blind_spots": blind_spots,
         "limitations": [
             "Advisory only: affected nodes indicate potential reachability, not confirmed defects.",
             "Dynamic Python calls (getattr, reflection, runtime plugins) are marked unresolved.",

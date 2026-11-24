@@ -2,107 +2,92 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ChangeScope MCP - Code Change Impact</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ChangeScope MCP - Developer Intelligence</title>
+  <script src="https://unpkg.com/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
+  <script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
+  <script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
   <header class="topbar">
-    <div class="brand">
-      <span class="badge-track">TRACK 1: MAKE MCP MATTER - LESS MAGIC, MORE UTILITY</span>
-      <h1>ChangeScope <span>MCP</span></h1>
-    </div>
-    <button id="btn-export-report" class="btn btn-secondary" disabled>Export Markdown Report</button>
+    <div><span class="track-tag">TRACK 1: MAKE MCP MATTER</span><h1>ChangeScope <b>MCP</b></h1></div>
+    <button id="exportBtn" class="btn-secondary" disabled>Export Markdown Report</button>
   </header>
-
-  <div class="advisory-banner">
-    <strong>Advisory Boundary:</strong> Affected code does not mean broken code. Static AST and Git diff results guide regression testing; test execution requires explicit human approval.
-  </div>
+  <div class="advisory"><strong>Advisory:</strong> Affected code does not mean broken code. Execution requires explicit human approval.</div>
 
   <main class="layout">
-    <section class="panel controls-panel">
-      <h2>1. Revision Comparison Setup</h2>
-      <label for="repo-select">Approved Local Repository</label>
-      <select id="repo-select"></select>
-
-      <div class="commit-grid">
-        <div>
-          <label for="base-commit">Base Commit</label>
-          <input id="base-commit" type="text" readonly>
+    <aside class="sidebar">
+      <section class="card">
+        <h2>1. Revision Setup</h2>
+        <label>Approved Local Repository</label>
+        <input id="repoPath" type="text" readonly>
+        <div class="two-col">
+          <div><label>Base Commit</label><input id="baseCommit" type="text" readonly></div>
+          <div><label>Target Commit</label><input id="targetCommit" type="text" readonly></div>
         </div>
-        <div>
-          <label for="target-commit">Target Commit</label>
-          <input id="target-commit" type="text" readonly>
+        <label>Execution Time Budget: <strong id="budgetLabel">0.25s</strong></label>
+        <input id="budgetSlider" type="range" min="0.05" max="1.00" step="0.05" value="0.25">
+        <button id="runBtn" class="btn-primary">Run Deterministic Impact Analysis</button>
+      </section>
+
+      <section class="card"><h2>2. Detected Code Changes</h2><div id="changedList"></div></section>
+
+      <section class="card">
+        <h2>3. Live MCP Inspector</h2>
+        <div class="inline">
+          <select id="mcpTool">
+            <option value="list_approved_repositories">tool: list_approved_repositories</option>
+            <option value="analyze_revision_impact">tool: analyze_revision_impact</option>
+            <option value="get_prioritized_tests">tool: get_prioritized_tests</option>
+          </select>
+          <button id="mcpBtn" class="btn-secondary">Invoke</button>
         </div>
-      </div>
-
-      <button id="btn-run-analysis" class="btn btn-primary">Run Deterministic Impact Analysis</button>
-      <hr>
-
-      <h2>2. Detected Code Changes</h2>
-      <div id="change-summary" class="empty-state">Run analysis to inspect modified and deleted functions.</div>
-      <hr>
-
-      <h2>3. Live MCP Tool Inspector</h2>
-      <p class="muted">Verify how an AI agent queries ChangeScope over MCP instead of guessing.</p>
-      <div class="mcp-controls">
-        <select id="mcp-tool-select">
-          <option value="analyze_revision_impact">tool: analyze_revision_impact</option>
-          <option value="get_prioritized_tests">tool: get_prioritized_tests</option>
-          <option value="list_approved_repositories">tool: list_approved_repositories</option>
-        </select>
-        <button id="btn-invoke-mcp" class="btn btn-secondary">Invoke MCP Tool</button>
-      </div>
-      <pre id="mcp-output" class="code-box">{ "status": "Ready - click Invoke MCP Tool" }</pre>
-    </section>
+        <pre id="mcpOutput" class="console">{ "status": "Ready" }</pre>
+      </section>
+    </aside>
 
     <section class="workspace">
-      <div class="panel graph-panel">
-        <div class="panel-header">
-          <h2>4. Interactive Reverse-Dependency Impact Explorer</h2>
-          <div class="legend">
-            <span class="pill pill-changed">Changed</span>
-            <span class="pill pill-affected">Potentially Affected</span>
-            <span class="pill pill-test">Regression Test</span>
-            <span class="pill pill-unaffected">Unaffected</span>
+      <div class="kpis">
+        <section class="kpi"><span>Revisions & Scope</span><strong id="kpiRevisions">-</strong><small id="kpiFiles">-</small></section>
+        <section class="kpi"><span>Blast Radius</span><strong id="kpiBlast">-</strong><div id="blastStack" class="blast-stack"></div></section>
+        <section class="kpi"><span>Time Savings</span><strong id="kpiSavings">-</strong><div class="chart-wrap"><canvas id="budgetChart"></canvas></div></section>
+        <section class="kpi"><span>AST Blind Spots</span><strong id="kpiBlind">-</strong><small>Explicit static limits</small></section>
+      </div>
+
+      <section class="card">
+        <div class="card-header">
+          <h2>4. Reverse-Dependency Impact Explorer</h2>
+          <div class="toolbar">
+            <button id="dirBT" class="active">Bottom-Up</button><button id="dirLR">Left-Right</button>
+            <button id="filterAll" class="active">All Nodes</button><button id="filterImpacted">Impacted Only</button>
+            <button id="viewToggle">Table View</button><button id="fitGraph">Fit</button>
+            <button id="zoomIn">Zoom +</button><button id="zoomOut">Zoom -</button>
           </div>
         </div>
-        <div class="graph-container">
-          <svg id="impact-svg" viewBox="0 0 760 280" role="img" aria-label="Dependency Impact Graph"></svg>
-          <aside id="node-inspector" class="node-inspector">
-            <h3>Node Inspector</h3>
-            <p class="muted">Click any node to inspect its status and evidence chain.</p>
-          </aside>
+        <div class="explorer">
+          <div>
+            <div id="cy"></div>
+            <div id="graphTableWrap" class="hidden"><table><thead><tr><th>Node</th><th>Role</th><th>File & Lines</th><th>Hop</th></tr></thead><tbody id="graphTable"></tbody></table></div>
+            <div class="legend"><span><i class="dot changed"></i>Changed</span><span><i class="dot affected"></i>Affected</span><span><i class="dot test"></i>Test</span><span><i class="dot unaffected"></i>Unaffected</span></div>
+          </div>
+          <aside id="nodeInspector" class="inspector"><h3>Node Inspector</h3><p>Select a graph node.</p></aside>
         </div>
-      </div>
+      </section>
 
-      <div class="panel tests-panel">
-        <div class="panel-header">
-          <h2>5. Prioritized Regression Tests and Human Execution Gate</h2>
-          <button id="btn-approve-tests" class="btn btn-danger" disabled>Approve and Execute Recommended Tests</button>
-        </div>
-        <table class="data-table">
-          <thead>
-            <tr><th>Rank</th><th>Test Identifier</th><th>Score</th><th>Status</th><th>Deterministic Evidence Path</th></tr>
-          </thead>
-          <tbody id="tests-tbody">
-            <tr><td colspan="5" class="muted">No analysis run yet.</td></tr>
-          </tbody>
-        </table>
-        <div id="test-run-result" class="test-run-box hidden"></div>
-      </div>
+      <section class="card">
+        <div class="card-header"><h2>5. Prioritized Regression Tests</h2><button id="runTestsBtn" class="btn-danger" disabled>Approve & Execute Selected Tests</button></div>
+        <div class="table-scroll"><table><thead><tr><th></th><th>Rank & Test</th><th>Est. Time</th><th>Heuristic Score</th><th>Predicted Risk</th><th>Observed Outcome</th><th>Evidence Path</th></tr></thead><tbody id="testTable"></tbody></table></div>
+        <div id="workerConsoleWrap" class="hidden"><h3>Verified Worker Console Output</h3><pre id="workerConsole" class="console"></pre></div>
+      </section>
 
-      <div class="panel limits-panel">
-        <h3>Transparent System Limitations</h3>
-        <ul id="limitations-list">
-          <li>Python static AST resolves direct calls and imports; dynamic dispatch is flagged unresolved.</li>
-          <li>Heuristic scores rank regression priority deterministically and do not represent calibrated probabilities.</li>
-          <li>Isolated worker enforces a 15-second timeout and blocks arbitrary shell commands.</li>
-        </ul>
-      </div>
+      <details class="card diff-card">
+        <summary>6. Git Unified Diff & Blind-Spot Inspector</summary>
+        <div class="diff-grid"><pre id="diffViewer" class="console"></pre><div id="blindSpots"></div></div>
+      </details>
     </section>
   </main>
-
   <script src="/static/app.js"></script>
 </body>
 </html>
