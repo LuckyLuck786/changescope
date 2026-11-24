@@ -7,3 +7,7 @@ button{padding:7px 9px}
 .legend-bar,.legend{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
 .pill-legend{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;border:1px solid var(--border);background:var(--panel2);font-size:11px}
 .hidden{display:none!important}
+.architecture-card summary{cursor:pointer;font-weight:700;color:#e2e8f0}
+.architecture-intro{max-width:900px;color:var(--muted);font-size:13px}
+.architecture-scroll{overflow:auto;background:#070a10;border:1px solid var(--border);border-radius:8px;padding:16px}
+.architecture-scroll .mermaid{min-width:780px;text-align:center;color:var(--text);background:transparent}

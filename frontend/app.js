@@ -359,6 +359,13 @@ fitGraph.addEventListener("click",()=>cy&&cy.fit(undefined,28));
 zoomIn.addEventListener("click",()=>cy&&cy.zoom({level:cy.zoom()*1.2,position:cy.extent().center}));
 zoomOut.addEventListener("click",()=>cy&&cy.zoom({level:cy.zoom()/1.2,position:cy.extent().center}));
 
+if (window.mermaid) {
+  window.mermaid.initialize({startOnLoad:false,theme:"dark",securityLevel:"strict"});
+  window.mermaid.run({querySelector:".mermaid"}).catch(error => {
+    console.error("Architecture diagram rendering failed:", error);
+  });
+}
+
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", bootstrap, {once:true});
 } else {

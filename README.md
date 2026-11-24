@@ -2,6 +2,50 @@
 
 A developer-facing Web Application and Model Context Protocol server that replaces LLM guesswork with deterministic AST call-graph traversal, Git diff inspection, and human-gated regression test prioritization.
 
+## Why Web + MCP?
+
+Code review, diff inspection, dependency exploration, and regression test approval fit desktop developer workflows and AI coding tools. ChangeScope pairs an interactive web dashboard with MCP tools so developers and agents can query the same deterministic analysis. Static analysis provides explainable evidence; test execution remains behind an explicit human approval gate.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph Clients["Developer and Agent Interfaces"]
+        WEB["Web Dashboard<br/>Graph, evidence, test approval"]
+        MCP_CLIENT["MCP Host<br/>IDE or compatible agent"]
+    end
+
+    subgraph Services["Application Services"]
+        API["FastAPI<br/>Projects, analyses, reports"]
+        MCP["MCP Server<br/>Approved analysis tools"]
+        GATE["Human Approval Gate<br/>Explicit selected-test authorization"]
+    end
+
+    subgraph Analysis["Deterministic Analysis"]
+        GIT["Git Revision Diff"]
+        AST["Python AST<br/>Functions and call sites"]
+        GRAPH["Reverse Dependency Graph"]
+        RANK["Heuristic Test Ranking<br/>Evidence and runtime budget"]
+    end
+
+    subgraph Local["Local State and Execution"]
+        DB[("SQLite<br/>Analysis history")]
+        WORKER["Pytest subprocess<br/>Timeout-bounded"]
+        REPO["Approved Local Git Repository"]
+    end
+
+    WEB <--> API
+    MCP_CLIENT <--> MCP
+    API --> GIT
+    MCP --> GIT
+    GIT --> AST --> GRAPH --> RANK
+    RANK --> DB
+    API --> DB
+    API --> GATE --> WORKER
+    REPO --> GIT
+    REPO --> WORKER
+```
+
 ## Features
 
 - Interactive reverse-dependency impact graph

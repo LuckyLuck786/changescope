@@ -8,6 +8,7 @@
   <script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
   <script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
@@ -87,8 +88,48 @@
         <summary>6. Git Unified Diff & Blind-Spot Inspector</summary>
         <div class="diff-grid"><pre id="diffViewer" class="console"></pre><div id="blindSpots"></div></div>
       </details>
+
+      <details class="card architecture-card" open>
+        <summary>Why a Web + MCP Architecture?</summary>
+        <p class="architecture-intro">Code review and regression testing happen in desktop developer workflows and AI coding tools. ChangeScope gives both developers and MCP-compatible agents the same deterministic impact analysis, while keeping test execution behind explicit human approval.</p>
+        <div class="architecture-scroll">
+          <pre class="mermaid">
+flowchart LR
+    subgraph Clients["Developer and Agent Interfaces"]
+        WEB["Web Dashboard<br/>Graph, evidence, test approval"]
+        MCP_CLIENT["MCP Host<br/>IDE or compatible agent"]
+    end
+    subgraph Services["Application Services"]
+        API["FastAPI<br/>Projects, analyses, reports"]
+        MCP["MCP Server<br/>Approved analysis tools"]
+        GATE["Human Approval Gate<br/>Explicit selected-test authorization"]
+    end
+    subgraph Analysis["Deterministic Analysis"]
+        GIT["Git Revision Diff"]
+        AST["Python AST<br/>Functions and call sites"]
+        GRAPH["Reverse Dependency Graph"]
+        RANK["Heuristic Test Ranking<br/>Evidence and runtime budget"]
+    end
+    subgraph Local["Local State and Execution"]
+        DB[("SQLite<br/>Analysis history")]
+        WORKER["Pytest subprocess<br/>Timeout-bounded"]
+        REPO["Approved Local Git Repository"]
+    end
+    WEB <--> API
+    MCP_CLIENT <--> MCP
+    API --> GIT
+    MCP --> GIT
+    GIT --> AST --> GRAPH --> RANK
+    RANK --> DB
+    API --> DB
+    API --> GATE --> WORKER
+    REPO --> GIT
+    REPO --> WORKER
+          </pre>
+        </div>
+      </details>
     </section>
   </main>
-  <script src="/static/app.js?v=3"></script>
+  <script src="/static/app.js?v=4"></script>
 </body>
 </html>
