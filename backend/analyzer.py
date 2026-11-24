@@ -324,7 +324,9 @@ def run_impact_analysis(repo_path_str: str, base_commit: str, target_commit: str
                     edges_payload.append({
                         "source": caller_qname,
                         "target": callee_qname,
-                        "edge_type": "call",
+                        "edge_type": "COVERS" if caller_qname.endswith(".test_") or caller_qname.split("/")[-1].startswith("test") or ".test_" in caller_qname else "CALLS",
+                        "type": "COVERS" if ".test_" in caller_qname else "CALLS",
+                        "label": "covers" if ".test_" in caller_qname else "calls",
                         "resolution": "resolved",
                     })
             elif len(targets) > 1:
@@ -405,6 +407,10 @@ def run_impact_analysis(repo_path_str: str, base_commit: str, target_commit: str
         test["rank"] = rank
         test["estimated_seconds"] = round(0.025 + (0.055 * (1.0 - test["score"])), 3)
         test["predicted_risk"] = "HIGH" if test["score"] >= 0.70 else "MEDIUM" if test["score"] >= 0.30 else "LOW"
+        test["risk_label"] = test["predicted_risk"]
+        test["name"] = test["qualified_name"].split(".")[-1]
+        test["reason"] = test["explanation"]
+        test["selected_in_budget"] = False
 
     for node in nodes_payload:
         node["role"] = {

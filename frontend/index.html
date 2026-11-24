@@ -16,13 +16,14 @@
     <button id="exportBtn" class="btn-secondary" disabled>Export Markdown Report</button>
   </header>
   <div class="advisory"><strong>Advisory:</strong> Affected code does not mean broken code. Execution requires explicit human approval.</div>
+  <div id="statusBanner" class="advisory hidden" role="status"></div>
 
   <main class="layout">
     <aside class="sidebar">
       <section class="card">
         <h2>1. Revision Setup</h2>
         <label>Approved Local Repository</label>
-        <input id="repoPath" type="text" readonly>
+        <select id="repoPath"></select>
         <div class="two-col">
           <div><label>Base Commit</label><input id="baseCommit" type="text" readonly></div>
           <div><label>Target Commit</label><input id="targetCommit" type="text" readonly></div>
@@ -70,7 +71,7 @@
           <div>
             <div id="cy"></div>
             <div id="graphTableWrap" class="hidden"><table><thead><tr><th>Node</th><th>Role</th><th>File & Lines</th><th>Hop</th></tr></thead><tbody id="graphTable"></tbody></table></div>
-            <div class="legend"><span><i class="dot changed"></i>Changed</span><span><i class="dot affected"></i>Affected</span><span><i class="dot test"></i>Test</span><span><i class="dot unaffected"></i>Unaffected</span></div>
+            <div class="legend-bar"><span class="pill-legend"><i class="dot changed"></i>Changed / Deleted</span><span class="pill-legend"><i class="dot affected"></i>Potentially Affected</span><span class="pill-legend"><i class="dot test"></i>Regression Test</span><span class="pill-legend"><i class="dot unaffected"></i>Unaffected</span></div>
           </div>
           <aside id="nodeInspector" class="inspector"><h3>Node Inspector</h3><p>Select a graph node.</p></aside>
         </div>

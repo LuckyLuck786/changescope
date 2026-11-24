@@ -7,40 +7,56 @@ let budgetChart = null;
 let outcomes = {};
 
 async function bootstrap() {
-  const defaults = await (await fetch("/api/defaults")).json();
-  repoPath.value = defaults.demo_repo_path;
-  baseCommit.value = defaults.base_commit;
-  targetCommit.value = defaults.target_commit;
-  budgetSlider.value = defaults.budget_seconds;
-  budgetLabel.textContent = `${defaults.budget_seconds}s`;
-  await runAnalysis();
+  try {
+    const response = await fetch("/api/defaults");
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const cfg = await response.json();
+    const project = cfg.default_project;
+    repoPath.innerHTML = cfg.projects.map(item =>
+      `<option value="${escapeHtml(item.path)}">${escapeHtml(item.name)}</option>`
+    ).join("");
+    repoPath.value = project.path;
+    baseCommit.value = project.base_commit;
+    targetCommit.value = project.target_commit;
+    budgetSlider.value = cfg.budget_seconds;
+    budgetLabel.textContent = `${cfg.budget_seconds}s`;
+    statusBanner.className = "advisory hidden";
+    await runAnalysis();
+  } catch (error) {
+    statusBanner.className = "advisory";
+    statusBanner.textContent = `Backend Connection Notice: ${error.message}`;
+  }
 }
 
 async function runAnalysis() {
-  runBtn.disabled = true;
-  runBtn.textContent = "Analyzing...";
-  outcomes = {};
-  workerConsoleWrap.className = "hidden";
-  const response = await fetch("/api/analyses", {
-    method: "POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({
-      repo_path: repoPath.value,
-      base_commit: baseCommit.value,
-      target_commit: targetCommit.value,
-      budget_seconds: Number(budgetSlider.value),
-    }),
-  });
-  const data = await response.json();
-  runBtn.disabled = false;
-  runBtn.textContent = "Run Deterministic Impact Analysis";
-  if (!response.ok) {
-    alert(data.detail || "Analysis failed");
-    return;
+  try {
+    runBtn.disabled = true;
+    runBtn.textContent = "Analyzing...";
+    outcomes = {};
+    workerConsoleWrap.className = "hidden";
+    const response = await fetch("/api/analyses", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        repo_path: repoPath.value,
+        base_commit: baseCommit.value,
+        target_commit: targetCommit.value,
+        budget_seconds: Number(budgetSlider.value),
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || "Analysis failed");
+    analysis = data;
+    exportBtn.disabled = false;
+    statusBanner.className = "advisory hidden";
+    renderDashboard();
+  } catch (error) {
+    statusBanner.className = "advisory";
+    statusBanner.textContent = `Analysis Notice: ${error.message}`;
+  } finally {
+    runBtn.disabled = false;
+    runBtn.textContent = "Run Deterministic Impact Analysis";
   }
-  analysis = data;
-  exportBtn.disabled = false;
-  renderDashboard();
 }
 
 function escapeHtml(value) {
@@ -237,9 +253,25 @@ async function approveTests() {
 }
 
 async function invokeMcp() {
-  mcpOutput.textContent = "Calling MCP...";
-  const response = await fetch("/api/mcp/invoke",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tool_name:mcpTool.value,arguments:{}})});
-  mcpOutput.textContent = JSON.stringify(await response.json(),null,2);
+  try {
+    mcpOutput.textContent = "Calling MCP...";
+    const response = await fetch("/api/mcp/invoke",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        tool_name:mcpTool.value,
+        repo_path:repoPath.value,
+        base_commit:baseCommit.value,
+        target_commit:targetCommit.value,
+        budget_seconds:Number(budgetSlider.value)
+      })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || "MCP invocation failed");
+    mcpOutput.textContent = JSON.stringify(data,null,2);
+  } catch (error) {
+    mcpOutput.textContent = JSON.stringify({error:error.message},null,2);
+  }
 }
 
 function setLayout(direction) {
@@ -253,7 +285,27 @@ budgetSlider.addEventListener("input",()=>analysis&&recomputeBudget(Number(budge
 runBtn.addEventListener("click",runAnalysis);
 runTestsBtn.addEventListener("click",approveTests);
 mcpBtn.addEventListener("click",invokeMcp);
-exportBtn.addEventListener("click",()=>analysis&&window.open(`/api/analyses/${analysis.id}/report`,`_blank`));
+exportBtn.addEventListener("click", async () => {
+  if (!analysis) return;
+  const response = await fetch("/api/report/markdown", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      repo_path:repoPath.value,
+      base_commit:baseCommit.value,
+      target_commit:targetCommit.value,
+      budget_seconds:Number(budgetSlider.value)
+    })
+  });
+  if (!response.ok) return;
+  const blob = new Blob([await response.text()], {type:"text/markdown"});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "changescope-report.md";
+  link.click();
+  URL.revokeObjectURL(url);
+});
 dirBT.addEventListener("click",()=>setLayout("BT"));
 dirLR.addEventListener("click",()=>setLayout("LR"));
 filterAll.addEventListener("click",()=>{impactedOnly=false;filterAll.classList.add("active");filterImpacted.classList.remove("active");renderGraph();});

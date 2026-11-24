@@ -4,3 +4,6 @@ button{padding:7px 9px}
 .toolbar button{padding:7px 9px}
 .explorer{gap:12px}
 #cy{border-radius:8px}
+.legend-bar,.legend{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.pill-legend{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;border:1px solid var(--border);background:var(--panel2);font-size:11px}
+.hidden{display:none!important}
