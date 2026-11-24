@@ -3,8 +3,45 @@ let cy = null;
 let layoutDir = "BT";
 let impactedOnly = false;
 let tableMode = false;
-let budgetChart = null;
+let budgetChartInstance = null;
 let outcomes = {};
+
+const exportBtn = document.getElementById("exportBtn");
+const statusBanner = document.getElementById("statusBanner");
+const repoPath = document.getElementById("repoPath");
+const baseCommit = document.getElementById("baseCommit");
+const targetCommit = document.getElementById("targetCommit");
+const budgetLabel = document.getElementById("budgetLabel");
+const budgetSlider = document.getElementById("budgetSlider");
+const runBtn = document.getElementById("runBtn");
+const changedList = document.getElementById("changedList");
+const mcpTool = document.getElementById("mcpTool");
+const mcpBtn = document.getElementById("mcpBtn");
+const mcpOutput = document.getElementById("mcpOutput");
+const kpiRevisions = document.getElementById("kpiRevisions");
+const kpiFiles = document.getElementById("kpiFiles");
+const kpiBlast = document.getElementById("kpiBlast");
+const blastStack = document.getElementById("blastStack");
+const kpiSavings = document.getElementById("kpiSavings");
+const kpiBlind = document.getElementById("kpiBlind");
+const budgetChartCanvas = document.getElementById("budgetChart");
+const nodeInspector = document.getElementById("nodeInspector");
+const graphTableWrap = document.getElementById("graphTableWrap");
+const graphTable = document.getElementById("graphTable");
+const testTable = document.getElementById("testTable");
+const runTestsBtn = document.getElementById("runTestsBtn");
+const workerConsoleWrap = document.getElementById("workerConsoleWrap");
+const workerConsole = document.getElementById("workerConsole");
+const diffViewer = document.getElementById("diffViewer");
+const blindSpots = document.getElementById("blindSpots");
+const dirBT = document.getElementById("dirBT");
+const dirLR = document.getElementById("dirLR");
+const filterAll = document.getElementById("filterAll");
+const filterImpacted = document.getElementById("filterImpacted");
+const viewToggle = document.getElementById("viewToggle");
+const fitGraph = document.getElementById("fitGraph");
+const zoomIn = document.getElementById("zoomIn");
+const zoomOut = document.getElementById("zoomOut");
 
 async function bootstrap() {
   try {
@@ -125,9 +162,9 @@ function renderBlastStack() {
 }
 
 function renderBudgetChart(selected, fullRemaining) {
-  if (!budgetChart || typeof Chart === "undefined") return;
-  if (window.budgetChartInstance) window.budgetChartInstance.destroy();
-  window.budgetChartInstance = new Chart(budgetChart, {
+  if (!budgetChartCanvas || typeof Chart === "undefined") return;
+  if (budgetChartInstance) budgetChartInstance.destroy();
+  budgetChartInstance = new Chart(budgetChartCanvas, {
     type:"bar",
     data:{labels:["Suite"],datasets:[
       {label:"Selected",data:[selected],backgroundColor:"#58a6ff",stack:"suite"},
@@ -138,7 +175,15 @@ function renderBudgetChart(selected, fullRemaining) {
 }
 
 function renderGraph() {
-  if (!analysis || typeof cytoscape === "undefined") return;
+  if (!analysis) return;
+  if (typeof cytoscape === "undefined") {
+    document.getElementById("cy").classList.add("hidden");
+    graphTableWrap.classList.remove("hidden");
+    statusBanner.className = "advisory";
+    statusBanner.textContent = "Graph library unavailable; showing the accessible dependency table instead.";
+    return;
+  }
+  document.getElementById("cy").classList.remove("hidden");
   if (cy) cy.destroy();
   const nodes = analysis.graph.nodes.filter(node => !impactedOnly || node.role === "CHANGED" || node.role === "AFFECTED" || node.role === "TEST");
   const ids = new Set(nodes.map(node => node.id));
@@ -170,7 +215,7 @@ function renderGraph() {
       {selector:'edge[edgeType="COVERS"]',style:{"line-style":"dashed","line-color":"#a371f7","target-arrow-color":"#a371f7"}},
       {selector:"edge[edgeType=\"CALLS\"]",style:{"line-style":"solid","line-color":"#58a6ff","target-arrow-color":"#58a6ff"}},
       {selector:"node.dimmed, edge.dimmed",style:{opacity:.22}},
-      {selector:"node.highlighted",style:{border-width:3.5,opacity:1}}
+      {selector:"node.highlighted",style:{"border-width":3.5,opacity:1}}
     ],
     layout:{name:"dagre",rankDir:layoutDir,nodeSep:45,rankSep:85,padding:24,fit:true}
   });
@@ -185,7 +230,6 @@ function highlight(target) {
   cy.elements().removeClass("dimmed highlighted").addClass("dimmed");
   const neighborhood = target.closedNeighborhood();
   neighborhood.removeClass("dimmed").addClass("highlighted");
-  neighborhood.forEach(el => el.style("opacity",1));
 }
 
 function inspectNode(node) {
@@ -315,4 +359,8 @@ fitGraph.addEventListener("click",()=>cy&&cy.fit(undefined,28));
 zoomIn.addEventListener("click",()=>cy&&cy.zoom({level:cy.zoom()*1.2,position:cy.extent().center}));
 zoomOut.addEventListener("click",()=>cy&&cy.zoom({level:cy.zoom()/1.2,position:cy.extent().center}));
 
-bootstrap();
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", bootstrap, {once:true});
+} else {
+  bootstrap();
+}
